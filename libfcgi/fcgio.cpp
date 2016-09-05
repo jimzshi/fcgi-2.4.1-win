@@ -19,7 +19,7 @@
 // FITNESS FOR A PARTICULAR PURPOSE.
 
 #ifdef _WIN32
-#define DLLAPI  //__declspec(dllexport)
+#define DLLAPI  __declspec(dllexport)
 #endif
 
 #include <limits.h>
@@ -63,7 +63,7 @@ int fcgi_streambuf::overflow(int c)
 {
     if (this->bufsize)
     {
-        int plen = pptr() - pbase();
+        int plen = int(pptr() - pbase());
 
         if (plen) 
         {
@@ -109,7 +109,7 @@ int fcgi_streambuf::underflow()
     {
         if (in_avail() == 0)
         {
-            int glen = FCGX_GetStr(eback(), this->bufsize, this->fcgx);
+            size_t glen = FCGX_GetStr(eback(), this->bufsize, this->fcgx);
             if (glen <= 0) return EOF;
 
             setg(eback(), eback(), eback() + glen);

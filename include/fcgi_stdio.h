@@ -102,14 +102,14 @@ DLLAPI char      *FCGI_gets(char *str);
 DLLAPI int        FCGI_fputc(int c, FCGI_FILE *fp);
 DLLAPI int        FCGI_putchar(int c);
 
-DLLAPI int        FCGI_fputs(const char *str, FCGI_FILE *fp);
-DLLAPI int        FCGI_puts(const char *str);
+DLLAPI size_t     FCGI_fputs(const char *str, FCGI_FILE *fp);
+DLLAPI size_t     FCGI_puts(const char *str);
 
-DLLAPI int        FCGI_fprintf(FCGI_FILE *fp, const char *format, ...);
-DLLAPI int        FCGI_printf(const char *format, ...);
+DLLAPI size_t     FCGI_fprintf(FCGI_FILE *fp, const char *format, ...);
+DLLAPI size_t     FCGI_printf(const char *format, ...);
 
-DLLAPI int        FCGI_vfprintf(FCGI_FILE *fp, const char *format, va_list ap);
-DLLAPI int        FCGI_vprintf(const char *format, va_list ap);
+DLLAPI size_t     FCGI_vfprintf(FCGI_FILE *fp, const char *format, va_list ap);
+DLLAPI size_t     FCGI_vprintf(const char *format, va_list ap);
 
 DLLAPI size_t     FCGI_fread(void *ptr, size_t size, size_t nmemb, FCGI_FILE *fp);
 DLLAPI size_t     FCGI_fwrite(void *ptr, size_t size, size_t nmemb, FCGI_FILE *fp);

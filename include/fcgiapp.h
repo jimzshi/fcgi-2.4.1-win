@@ -158,7 +158,7 @@ DLLAPI int FCGX_Init(void);
  *
  *----------------------------------------------------------------------
  */
-DLLAPI int FCGX_OpenSocket(const char *path, int backlog);
+DLLAPI long long FCGX_OpenSocket(const char *path, int backlog);
 
 /*
  *----------------------------------------------------------------------
@@ -400,7 +400,7 @@ DLLAPI int FCGX_UnGetChar(int c, FCGX_Stream *stream);
  *
  *----------------------------------------------------------------------
  */
-DLLAPI int FCGX_GetStr(char *str, int n, FCGX_Stream *stream);
+DLLAPI size_t FCGX_GetStr(char *str, size_t n, FCGX_Stream *stream);
 
 /*
  *----------------------------------------------------------------------
@@ -477,7 +477,7 @@ DLLAPI int FCGX_PutChar(int c, FCGX_Stream *stream);
  *
  *----------------------------------------------------------------------
  */
-DLLAPI int FCGX_PutStr(const char *str, int n, FCGX_Stream *stream);
+DLLAPI size_t FCGX_PutStr(const char *str, size_t n, FCGX_Stream *stream);
 
 /*
  *----------------------------------------------------------------------
@@ -492,7 +492,7 @@ DLLAPI int FCGX_PutStr(const char *str, int n, FCGX_Stream *stream);
  *
  *----------------------------------------------------------------------
  */
-DLLAPI int FCGX_PutS(const char *str, FCGX_Stream *stream);
+DLLAPI size_t FCGX_PutS(const char *str, FCGX_Stream *stream);
 
 /*
  *----------------------------------------------------------------------
@@ -508,9 +508,9 @@ DLLAPI int FCGX_PutS(const char *str, FCGX_Stream *stream);
  *
  *----------------------------------------------------------------------
  */
-DLLAPI int FCGX_FPrintF(FCGX_Stream *stream, const char *format, ...);
+DLLAPI size_t FCGX_FPrintF(FCGX_Stream *stream, const char *format, ...);
 
-DLLAPI int FCGX_VFPrintF(FCGX_Stream *stream, const char *format, va_list arg);
+DLLAPI size_t FCGX_VFPrintF(FCGX_Stream *stream, const char *format, va_list arg);
 
 /*
  *----------------------------------------------------------------------

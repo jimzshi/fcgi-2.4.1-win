@@ -29,7 +29,7 @@ static const char rcsid[] = "$Id: os_win32.c,v 1.34 2003/06/22 00:16:43 robs Exp
 #include <sys/timeb.h>
 #include <process.h>
 
-#define DLLAPI // __declspec(dllexport)
+#define DLLAPI __declspec(dllexport)
 
 #include "fcgimisc.h"
 #include "fcgios.h"
@@ -79,7 +79,7 @@ typedef enum {
 typedef union {
     HANDLE fileHandle;
     SOCKET sock;
-    unsigned int value;
+    long long value;
 } DESCRIPTOR;
 
 /*
@@ -146,9 +146,9 @@ static BOOLEAN libInitialized = FALSE;
  *
  *--------------------------------------------------------------
  */
-static int Win32NewDescriptor(FILE_TYPE type, int fd, int desiredFd)
+static INT_PTR Win32NewDescriptor(FILE_TYPE type, INT_PTR fd, INT_PTR desiredFd)
 {
-    int index = -1;
+    INT_PTR index = -1;
 
     EnterCriticalSection(&fdTableCritical);
 
@@ -226,7 +226,7 @@ static int Win32NewDescriptor(FILE_TYPE type, int fd, int desiredFd)
 static void StdinThread(void * startup) 
 {
     int doIo = TRUE;
-    unsigned long fd;
+    ULONG_PTR fd;
     unsigned long bytesRead;
     POVERLAPPED_REQUEST pOv;
 
@@ -307,12 +307,12 @@ static void ShutdownRequestThread(void * arg)
  *
  *--------------------------------------------------------------
  */
-int OS_LibInit(int stdioFds[3])
+int OS_LibInit(INT_PTR stdioFds[3])
 {
     WORD  wVersion;
     WSADATA wsaData;
     int err;
-    int fakeFd;
+    INT_PTR fakeFd;
     char *cLenPtr = NULL;
     char *val = NULL;
         
@@ -350,10 +350,11 @@ int OS_LibInit(int stdioFds[3])
      * remove it from the environment out from under the application).
      * Spawn a thread to wait on the shutdown request.
      */
-    val = getenv(SHUTDOWN_EVENT_NAME);
+    size_t val_len;
+    _dupenv_s(&val, &val_len, SHUTDOWN_EVENT_NAME);
     if (val != NULL) 
     {
-        HANDLE shutdownEvent = (HANDLE) atoi(val);
+        HANDLE shutdownEvent = (HANDLE) atoll(val);
 
         if (_beginthread(ShutdownRequestThread, 0, shutdownEvent) == -1)
         {
@@ -364,10 +365,10 @@ int OS_LibInit(int stdioFds[3])
     if (acceptMutex == INVALID_HANDLE_VALUE)
     {
         /* If an accept mutex is in the env, use it */
-        val = getenv(MUTEX_VARNAME);
+        _dupenv_s(&val, &val_len, SHUTDOWN_EVENT_NAME);
         if (val != NULL) 
         {
-            acceptMutex = (HANDLE) atoi(val);
+            acceptMutex = (HANDLE) atoll(val);
         }
     }
 
@@ -457,7 +458,7 @@ int OS_LibInit(int stdioFds[3])
     }
 
     if ((fakeFd = Win32NewDescriptor(FD_PIPE_SYNC,
-				     (int)stdioHandles[STDIN_FILENO],
+				     (ULONG_PTR)stdioHandles[STDIN_FILENO],
 				     STDIN_FILENO)) == -1) {
         return -1;
     } else {
@@ -487,8 +488,8 @@ int OS_LibInit(int stdioFds[3])
      * Create the thread that will read stdin if the CONTENT_LENGTH
      * is non-zero.
      */
-    if((cLenPtr = getenv("CONTENT_LENGTH")) != NULL &&
-       atoi(cLenPtr) > 0) {
+    _dupenv_s(&cLenPtr, &val_len, SHUTDOWN_EVENT_NAME);
+    if(cLenPtr != NULL && atoi(cLenPtr) > 0) {
         hStdinThread = (HANDLE) _beginthread(StdinThread, 0, NULL);
 	if (hStdinThread == (HANDLE) -1) {
 	    printf("<H2>OS_LibInit Failed to create STDIN thread!  ERROR: %d</H2>\r\n\r\n",
@@ -512,7 +513,7 @@ int OS_LibInit(int stdioFds[3])
     }
 
     if ((fakeFd = Win32NewDescriptor(FD_PIPE_SYNC,
-				     (int)stdioHandles[STDOUT_FILENO],
+				     (INT_PTR)stdioHandles[STDOUT_FILENO],
 				     STDOUT_FILENO)) == -1) {
         return -1;
     } else {
@@ -529,7 +530,7 @@ int OS_LibInit(int stdioFds[3])
 	exit(99);
     }
     if ((fakeFd = Win32NewDescriptor(FD_PIPE_SYNC,
-				     (int)stdioHandles[STDERR_FILENO],
+				     (INT_PTR)stdioHandles[STDERR_FILENO],
 				     STDERR_FILENO)) == -1) {
         return -1;
     } else {
@@ -600,7 +601,7 @@ void OS_LibShutdown()
  *
  *--------------------------------------------------------------
  */
-static void Win32FreeDescriptor(int fd)
+static void Win32FreeDescriptor(INT_PTR fd)
 {
     /* Catch it if fd is a bogus value */
     ASSERT((fd >= 0) && (fd < WIN32_OPEN_MAX));
@@ -652,7 +653,7 @@ static short getPort(const char * bindPath)
     {
         char buf[6];
 
-        strncpy(buf, p, 6);
+        strncpy_s(buf, 6, p, 6);
         buf[5] = '\0';
 
         port = (short) atoi(buf);
@@ -679,9 +680,9 @@ static short getPort(const char * bindPath)
  *
  *----------------------------------------------------------------------
  */
-int OS_CreateLocalIpcFd(const char *bindPath, int backlog)
+INT_PTR OS_CreateLocalIpcFd(const char *bindPath, int backlog)
 {
-    int pseudoFd = -1;
+    INT_PTR pseudoFd = -1;
     short port = getPort(bindPath);
 
     if (acceptMutex == INVALID_HANDLE_VALUE)
@@ -744,15 +745,16 @@ int OS_CreateLocalIpcFd(const char *bindPath, int backlog)
     else
     {
         HANDLE hListenPipe = INVALID_HANDLE_VALUE;
-        char *pipePath = malloc(strlen(bindPathPrefix) + strlen(bindPath) + 1);
+        size_t pipePathLen = strlen(bindPathPrefix) + strlen(bindPath) + 1;
+        char *pipePath = malloc(pipePathLen);
         
         if (! pipePath) 
         {
             return -7;
         }
 
-        strcpy(pipePath, bindPathPrefix);
-        strcat(pipePath, bindPath);
+        strcpy_s(pipePath, pipePathLen, bindPathPrefix);
+        strcat_s(pipePath, pipePathLen, bindPath);
 
         hListenPipe = CreateNamedPipe(pipePath,
 		        PIPE_ACCESS_DUPLEX,
@@ -772,7 +774,7 @@ int OS_CreateLocalIpcFd(const char *bindPath, int backlog)
             return -9;
         }
 
-        pseudoFd = Win32NewDescriptor(listenType, (int) hListenPipe, -1);
+        pseudoFd = Win32NewDescriptor(listenType, (INT_PTR)hListenPipe, -1);
         
         if (pseudoFd == -1) 
         {
@@ -802,10 +804,10 @@ int OS_CreateLocalIpcFd(const char *bindPath, int backlog)
  *
  *----------------------------------------------------------------------
  */
-int OS_FcgiConnect(char *bindPath)
+INT_PTR OS_FcgiConnect(char *bindPath)
 {
     short port = getPort(bindPath);
-    int pseudoFd = -1;
+    INT_PTR pseudoFd = -1;
     
     if (port) 
     {
@@ -818,15 +820,14 @@ int OS_FcgiConnect(char *bindPath)
         if (*bindPath != ':')
         {
             char * p = strchr(bindPath, ':');
-            int len = p - bindPath + 1;
+            size_t len = p - bindPath + 1;
 
             host = malloc(len);
-            strncpy(host, bindPath, len);
+            strncpy_s(host, len, bindPath, len);
             host[len] = '\0';
         }
         
         hp = gethostbyname(host ? host : LOCALHOST);
-
         if (host)
         {
             free(host);
@@ -864,7 +865,8 @@ int OS_FcgiConnect(char *bindPath)
     }
     else
     {
-        char *pipePath = malloc(strlen(bindPathPrefix) + strlen(bindPath) + 1);
+        size_t pathLen = strlen(bindPathPrefix) + strlen(bindPath) + 1;
+        char *pipePath = malloc(pathLen);
         HANDLE hPipe;
         
         if (! pipePath) 
@@ -872,8 +874,8 @@ int OS_FcgiConnect(char *bindPath)
             return -1;
         }
 
-        strcpy(pipePath, bindPathPrefix);
-        strcat(pipePath, bindPath);
+        strcpy_s(pipePath, pathLen, bindPathPrefix);
+        strcat_s(pipePath, pathLen, bindPath);
 
         hPipe = CreateFile(pipePath,
 			    GENERIC_WRITE | GENERIC_READ,
@@ -890,7 +892,7 @@ int OS_FcgiConnect(char *bindPath)
             return -1;
         }
 
-        pseudoFd = Win32NewDescriptor(FD_PIPE_ASYNC, (int) hPipe, -1);
+        pseudoFd = Win32NewDescriptor(FD_PIPE_ASYNC, (INT_PTR) hPipe, -1);
         
         if (pseudoFd == -1) 
         {
@@ -929,7 +931,7 @@ int OS_FcgiConnect(char *bindPath)
  *
  *--------------------------------------------------------------
  */
-int OS_Read(int fd, char * buf, size_t len)
+int OS_Read(INT_PTR fd, char * buf, size_t len)
 {
     DWORD bytesRead;
     int ret = -1;
@@ -992,7 +994,7 @@ int OS_Read(int fd, char * buf, size_t len)
  *
  *--------------------------------------------------------------
  */
-int OS_Write(int fd, char * buf, size_t len)
+size_t OS_Write(INT_PTR fd, char * buf, size_t len)
 {
     DWORD bytesWritten;
     int ret = -1;
@@ -1059,7 +1061,7 @@ int OS_Write(int fd, char * buf, size_t len)
  *
  *----------------------------------------------------------------------
  */
-int OS_SpawnChild(char *execPath, int listenFd)
+int OS_SpawnChild(char *execPath, INT_PTR listenFd)
 {
     STARTUPINFO StartupInfo;
     PROCESS_INFORMATION pInfo;
@@ -1137,7 +1139,7 @@ int OS_SpawnChild(char *execPath, int listenFd)
  *
  *--------------------------------------------------------------
  */
-int OS_AsyncReadStdin(void *buf, int len, OS_AsyncProc procPtr,
+int OS_AsyncReadStdin(void *buf, size_t len, OS_AsyncProc procPtr,
                       ClientData clientData)
 {
     POVERLAPPED_REQUEST pOv;
@@ -1181,7 +1183,7 @@ int OS_AsyncReadStdin(void *buf, int len, OS_AsyncProc procPtr,
  *
  *--------------------------------------------------------------
  */
-int OS_AsyncRead(int fd, int offset, void *buf, int len,
+int OS_AsyncRead(INT_PTR fd, int offset, void *buf, int len,
 		 OS_AsyncProc procPtr, ClientData clientData)
 {
     DWORD bytesRead;
@@ -1257,7 +1259,7 @@ int OS_AsyncRead(int fd, int offset, void *buf, int len,
  *
  *--------------------------------------------------------------
  */
-int OS_AsyncWrite(int fd, int offset, void *buf, int len,
+int OS_AsyncWrite(INT_PTR fd, int offset, void *buf, int len,
 		  OS_AsyncProc procPtr, ClientData clientData)
 {
     DWORD bytesWritten;
@@ -1352,7 +1354,7 @@ int OS_AsyncWrite(int fd, int offset, void *buf, int len,
  *
  *--------------------------------------------------------------
  */
-int OS_Close(int fd, int shutdown_ok)
+int OS_Close(INT_PTR fd, int shutdown_ok)
 {
     int ret = 0;
 
@@ -1434,7 +1436,7 @@ int OS_Close(int fd, int shutdown_ok)
  *
  *--------------------------------------------------------------
  */
-int OS_CloseRead(int fd)
+int OS_CloseRead(INT_PTR fd)
 {
     int ret = 0;
 
@@ -1469,12 +1471,12 @@ int OS_CloseRead(int fd)
  */
 int OS_DoIo(struct timeval *tmo)
 {
-    unsigned long fd;
+    unsigned long long fd;
     unsigned long bytes;
     POVERLAPPED_REQUEST pOv;
     struct timeb tb;
-    int ms;
-    int ms_last;
+    time_t ms;
+    time_t ms_last;
     int err;
 
     /* XXX
@@ -1583,9 +1585,9 @@ static void printLastError(const char * text)
     LocalFree(buf);
 }
 
-static int acceptNamedPipe()
+static INT_PTR acceptNamedPipe()
 {
-    int ipcFd = -1;
+    INT_PTR ipcFd = -1;
 
     if (! ConnectNamedPipe(hListen, NULL))
     {
@@ -1619,7 +1621,7 @@ static int acceptNamedPipe()
         }
     }
 
-    ipcFd = Win32NewDescriptor(FD_PIPE_SYNC, (int) hListen, -1);
+    ipcFd = Win32NewDescriptor(FD_PIPE_SYNC, (INT_PTR) hListen, -1);
 	if (ipcFd == -1) 
     {
         DisconnectNamedPipe(hListen);
@@ -1628,10 +1630,10 @@ static int acceptNamedPipe()
     return ipcFd;
 }
 
-static int acceptSocket(const char *webServerAddrs)
+static INT_PTR acceptSocket(const char *webServerAddrs)
 {
     SOCKET hSock;
-    int ipcFd = -1;
+    INT_PTR ipcFd = -1;
 
     for (;;)
     {
@@ -1646,7 +1648,7 @@ static int acceptSocket(const char *webServerAddrs)
             FD_ZERO(&readfds);
 
 #pragma warning( disable : 4127 ) 
-            FD_SET((unsigned int) hListen, &readfds);
+            FD_SET((INT_PTR) hListen, &readfds);
 #pragma warning( default : 4127 ) 
 
             if (select(0, &readfds, NULL, NULL, &timeout) == 0)
@@ -1678,7 +1680,7 @@ static int acceptSocket(const char *webServerAddrs)
 
         closesocket(hSock);
 #else
-        hSock = WSAAccept((unsigned int) hListen,                    
+        hSock = WSAAccept((INT_PTR) hListen,
                           &sockaddr,  
                           &sockaddrLen,               
                           isAddrOKCallback,  
@@ -1727,9 +1729,9 @@ static int acceptSocket(const char *webServerAddrs)
  *
  *----------------------------------------------------------------------
  */
-int OS_Accept(int listen_sock, int fail_on_intr, const char *webServerAddrs)
+INT_PTR OS_Accept(INT_PTR listen_sock, int fail_on_intr, const char *webServerAddrs)
 {
-    int ipcFd = -1;
+    INT_PTR ipcFd = -1;
 
     // Touch args to prevent warnings
     listen_sock = 0; fail_on_intr = 0;
@@ -1797,7 +1799,7 @@ int OS_Accept(int listen_sock, int fail_on_intr, const char *webServerAddrs)
  *
  *----------------------------------------------------------------------
  */
-int OS_IpcClose(int ipcFd, int shutdown)
+int OS_IpcClose(INT_PTR ipcFd, int shutdown)
 {
     if (ipcFd == -1) return 0;
 
@@ -1850,7 +1852,7 @@ int OS_IpcClose(int ipcFd, int shutdown)
  *
  *----------------------------------------------------------------------
  */
-int OS_IsFcgi(int sock)
+int OS_IsFcgi(INT_PTR sock)
 {
     // Touch args to prevent warnings
     sock = 0;
@@ -1870,7 +1872,7 @@ int OS_IsFcgi(int sock)
  *
  *----------------------------------------------------------------------
  */
-void OS_SetFlags(int fd, int flags)
+void OS_SetFlags(INT_PTR fd, int flags)
 {
     unsigned long pLong = 1L;
     int err;

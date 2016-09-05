@@ -98,28 +98,28 @@ extern "C" {
 #define _CLIENTDATA
 #endif
 
-typedef void (*OS_AsyncProc) (ClientData clientData, int len);
+typedef void (*OS_AsyncProc) (ClientData clientData, size_t len);
 
-DLLAPI int OS_LibInit(int stdioFds[3]);
+DLLAPI int OS_LibInit(INT_PTR stdioFds[3]);
 DLLAPI void OS_LibShutdown(void);
-DLLAPI int OS_CreateLocalIpcFd(const char *bindPath, int backlog);
-DLLAPI int OS_FcgiConnect(char *bindPath);
-DLLAPI int OS_Read(int fd, char * buf, size_t len);
-DLLAPI int OS_Write(int fd, char * buf, size_t len);
-DLLAPI int OS_SpawnChild(char *execPath, int listenFd);
-DLLAPI int OS_AsyncReadStdin(void *buf, int len, OS_AsyncProc procPtr,
+DLLAPI INT_PTR OS_CreateLocalIpcFd(const char *bindPath, int backlog);
+DLLAPI INT_PTR OS_FcgiConnect(char *bindPath);
+DLLAPI int OS_Read(INT_PTR fd, char * buf, size_t len);
+DLLAPI size_t OS_Write(INT_PTR fd, char * buf, size_t len);
+DLLAPI int OS_SpawnChild(char *execPath, INT_PTR listenFd);
+DLLAPI int OS_AsyncReadStdin(void *buf, size_t len, OS_AsyncProc procPtr,
                              ClientData clientData);
-DLLAPI int OS_AsyncRead(int fd, int offset, void *buf, int len,
+DLLAPI int OS_AsyncRead(INT_PTR fd, int offset, void *buf, int len,
                         OS_AsyncProc procPtr, ClientData clientData);
-DLLAPI int OS_AsyncWrite(int fd, int offset, void *buf, int len,
+DLLAPI int OS_AsyncWrite(INT_PTR fd, int offset, void *buf, int len,
                          OS_AsyncProc procPtr, ClientData clientData);
-DLLAPI int OS_Close(int fd, int shutdown);
-DLLAPI int OS_CloseRead(int fd);
+DLLAPI int OS_Close(INT_PTR fd, int shutdown);
+DLLAPI int OS_CloseRead(INT_PTR fd);
 DLLAPI int OS_DoIo(struct timeval *tmo);
-DLLAPI int OS_Accept(int listen_sock, int fail_on_intr, const char *webServerAddrs);
-DLLAPI int OS_IpcClose(int ipcFd, int shutdown);
-DLLAPI int OS_IsFcgi(int sock);
-DLLAPI void OS_SetFlags(int fd, int flags);
+DLLAPI INT_PTR OS_Accept(INT_PTR listen_sock, int fail_on_intr, const char *webServerAddrs);
+DLLAPI int OS_IpcClose(INT_PTR ipcFd, int shutdown);
+DLLAPI int OS_IsFcgi(INT_PTR sock);
+DLLAPI void OS_SetFlags(INT_PTR fd, int flags);
 
 DLLAPI void OS_ShutdownPending(void);
 
